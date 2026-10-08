@@ -35,11 +35,13 @@ artifact-gen in.nii.gz --artifact lowres --iso 1
 | `--strength` (alias `--guidance-scale`) | 3 | Classifier-free-guidance scale: 1 = none, 1.5 mild, 3 moderate, 5 strong. |
 | `--steps` | 20 | Euler sampling steps. |
 | `--plane` | `axial` | Slab orientation: `axial`, `sagittal`, `coronal`. |
+| `--overlap N` | 1 | Slices shared by neighbouring 7-slice slabs and linearly blended (0 = none, up to 6). |
 | `--iso MM` | off | Run at an `MM`-mm isotropic grid, resample the output back to the input grid. |
 | `--seed` | random | Noise seed; the seed used is printed, so a result can be reproduced. |
 | `--checkpoint PATH` | Hub download | Local weights (`.pt` or `.safetensors`); or set `MRIARTIFACTS_CHECKPOINT`. |
 | `--device` | `auto` | `auto`, `cuda`, `cuda:N`, `cpu`. |
 | `--fp32` | off | Disable bf16 autocast on CUDA. |
+| `--no-compile` | off | Run the UNet eagerly. By default the UNet is wrapped in `torch.compile` on CUDA; the first slab batch pays a one-off compile cost. |
 
 The output keeps the input's grid, orientation, affine and intensity units. Different
 seeds give different artifact realisations of the same volume.

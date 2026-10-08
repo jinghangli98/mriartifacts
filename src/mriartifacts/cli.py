@@ -16,7 +16,7 @@ import torch
 from . import PUBLIC_ARTIFACTS, __version__
 from .generate import PLANES, generate_volume
 from .model import load_for_inference
-from .slab import save_volume, to_ras
+from .slab import PATCH_Z, save_volume, to_ras
 from .volume import resample_iso, resample_like
 from .weights import WeightsError, resolve_checkpoint
 
@@ -51,6 +51,9 @@ def parse_args(argv=None):
     p.add_argument("--steps", type=int, default=20, help="Euler sampling steps (default 20)")
     p.add_argument("--plane", choices=PLANES, default="axial",
                    help="slab orientation the volume is generated along (default axial)")
+    p.add_argument("--overlap", type=int, default=1, metavar="N",
+                   help=f"slices shared by neighbouring {PATCH_Z}-slice slabs and linearly blended "
+                        f"(default 1; 0 = none, up to {PATCH_Z - 1})")
     p.add_argument("--iso", type=float, default=None, metavar="MM",
                    help="resample the input to an MM-mm isotropic grid for inference; the output "
                         "is resampled back to the input grid (default: native grid)")
@@ -61,6 +64,9 @@ def parse_args(argv=None):
                         "or $MRIARTIFACTS_CHECKPOINT")
     p.add_argument("--device", default="auto", help="auto (default), cuda, cuda:N or cpu")
     p.add_argument("--fp32", action="store_true", help="disable bf16 autocast on CUDA")
+    p.add_argument("--no-compile", dest="compile", action="store_false",
+                   help="run the UNet eagerly instead of through torch.compile (on by default on "
+                        "CUDA; the first slab batch pays a one-off compile cost)")
     p.add_argument("--overwrite", action="store_true", help="replace an existing output file")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p.parse_args(argv)
@@ -82,6 +88,19 @@ def use_amp(device, fp32):
     """bf16 autocast only on a CUDA device that supports it (pre-Ampere GPUs
     do not; there bf16 convolutions fail or crawl), and never with --fp32."""
     return device.type == "cuda" and not fp32 and torch.cuda.is_bf16_supported()
+
+
+def compile_model(flow_matcher, device, enabled):
+    """Wrap the UNet in torch.compile on CUDA (off with --no-compile, and never
+    on CPU, where the compile cost outweighs the gain). Returns whether it is
+    compiled; the FlowMatcher is changed in place."""
+    if not enabled or device.type != "cuda":
+        return False
+    if not hasattr(torch, "compile"):
+        print("warning: torch.compile needs torch >= 2.0; running eagerly", file=sys.stderr)
+        return False
+    flow_matcher.model = torch.compile(flow_matcher.model)
+    return True
 
 
 def load_input(path):
@@ -106,6 +125,8 @@ def run(args):
         raise CliError("output path equals the input path; refusing to overwrite the input")
     if os.path.exists(output) and not args.overwrite:
         raise CliError(f"{output} exists; pass --overwrite to replace it")
+    if not 0 <= args.overlap < PATCH_Z:
+        raise CliError(f"--overlap must be between 0 and {PATCH_Z - 1}, got {args.overlap}")
     img = load_input(args.input)
     device = pick_device(args.device)
     seed = args.seed if args.seed is not None else int.from_bytes(os.urandom(4), "little")
@@ -116,11 +137,14 @@ def run(args):
         raise CliError(str(e))
     amp = use_amp(device, args.fp32)
     flow_matcher, conditioner, channels = load_for_inference(ckpt, device, amp=amp)
-    print(f"weights: {ckpt} (channels {channels}, device {device}, {'bf16' if amp else 'fp32'})")
+    compiled = compile_model(flow_matcher, device, args.compile)
+    print(f"weights: {ckpt} (channels {channels}, device {device}, {'bf16' if amp else 'fp32'}, "
+          f"{'torch.compile' if compiled else 'eager'})")
     ras, to_orig = to_ras(img)
     work = resample_iso(ras, args.iso) if args.iso else ras
     out01, window = generate_volume(work, flow_matcher, conditioner, args.artifact, args.strength,
-                                    args.steps, args.plane, seed, device)
+                                    args.steps, args.plane, seed, device,
+                                    non_overlap=args.overlap)
     if args.iso:
         out01 = np.asarray(resample_like(nib.Nifti1Image(out01, work.affine), ras).dataobj, dtype=np.float32)
     save_volume(out01, output, to_orig, window, img)

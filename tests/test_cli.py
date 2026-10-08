@@ -164,3 +164,31 @@ def test_cli_refuses_output_equal_to_input_via_symlink(tmp_path, tiny_ckpt, caps
     code, _, err = _run(capsys, str(link), target, "--artifact", "motion", "--checkpoint", tiny_ckpt, "--overwrite")
     assert code == 1 and "overwrite the input" in err
     assert nib.load(target).shape == (16, 16, 8)
+
+
+def test_cli_overlap_and_no_compile_flags(tmp_path, tiny_ckpt, capsys):
+    inp = _write(tmp_path / "t1.nii.gz", shape=(24, 24, 15))
+    args = cli.parse_args([inp, "--artifact", "motion"])
+    assert args.overlap == 1 and args.compile is True
+    args = cli.parse_args([inp, "--artifact", "motion", "--no-compile", "--overlap", "0"])
+    assert args.overlap == 0 and args.compile is False
+    for bad in ("-1", "7"):
+        code, _, err = _run(capsys, inp, "--artifact", "motion", "--checkpoint", tiny_ckpt,
+                            "--device", "cpu", "--overlap", bad)
+        assert code == 1 and "--overlap" in err
+    code, out, err = _run(capsys, inp, "--artifact", "motion", "--checkpoint", tiny_ckpt,
+                          "--steps", "1", "--device", "cpu", "--seed", "0", "--overlap", "3")
+    assert code == 0, err
+    assert "eager" in out   # compile is CUDA-only
+
+
+def test_compile_model_is_cuda_only():
+    import torch
+
+    class FM:
+        model = object()
+
+    fm = FM()
+    assert cli.compile_model(fm, torch.device("cpu"), True) is False
+    assert fm.model is FM.model
+    assert cli.compile_model(fm, torch.device("cuda"), False) is False

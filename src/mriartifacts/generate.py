@@ -28,10 +28,11 @@ def make_sampler(flow_matcher, labels, null_labels, guidance_scale, num_steps, d
 
 
 def generate_volume(img_ras, flow_matcher, conditioner, family, strength, steps, plane, seed, device,
-                    non_overlap=3, batch_size=4):
+                    non_overlap=1, batch_size=4):
     """`(volume in [0, 1] as (X, Y, Z) float32, (lo, hi) window)` for one artifact
     `family` on the RAS image `img_ras`. `strength` is the guidance scale,
-    `plane` the slab orientation (one of PLANES), `seed` fixes the noise."""
+    `plane` the slab orientation (one of PLANES), `seed` fixes the noise,
+    `non_overlap` the slices shared and blended between neighbouring slabs."""
     if plane not in PLANES:
         raise ValueError(f"unknown plane {plane!r}; expected one of {PLANES}")
     data = np.asanyarray(img_ras.dataobj).astype(np.float32)
