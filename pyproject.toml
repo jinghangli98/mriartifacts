@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mriartifacts"
+version = "0.1.0"
+description = "Generate realistic MRI artifacts (motion, spike, low resolution) on clean brain volumes with a class-conditioned flow-matching model"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "<AUTHOR NAME>" }]
+requires-python = ">=3.9"
+keywords = ["MRI", "motion artifact", "data augmentation", "flow matching", "medical imaging"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "torch>=2.1",
+    "monai>=1.4",
+    "nibabel>=5",
+    "numpy",
+    "scipy",
+    "tqdm",
+    "huggingface_hub",
+    "safetensors",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "build"]
+
+[project.urls]
+Homepage = "https://github.com/<GITHUB USER>/mriartifacts"
+Weights = "https://huggingface.co/jil202/mriartifacts"
+
+[project.scripts]
+artifact-gen = "mriartifacts.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

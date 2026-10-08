@@ -1,0 +1,54 @@
+# mriartifacts
+
+Generate realistic MRI artifacts on clean brain volumes.
+
+## Install
+
+```
+pip install mriartifacts
+```
+Or
+```bash
+git clone https://github.com/jinghangli98/mriartifacts.git
+cd mriartifacts 
+pip install -e .
+```
+
+The model has 165 M parameters and a 1 mm whole-brain volume takes about 2.5 minutes on an A100.
+
+
+Weights (660 MB) are downloaded from
+[huggingface.co/jil202/mriartifacts](https://huggingface.co/jil202/mriartifacts)
+
+## Usage
+
+```bash
+artifact-gen clean_T1w.nii.gz --artifact motion            # -> clean_T1w_motion.nii.gz
+artifact-gen in.nii.gz out.nii.gz --artifact spike --strength 5 --seed 42
+artifact-gen in.nii.gz --artifact lowres --iso 1
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `OUTPUT` | `<input stem>_<artifact>.nii.gz` | Output path; existing files need `--overwrite`. |
+| `--artifact` | required | `motion`, `spike` or `lowres`. |
+| `--strength` (alias `--guidance-scale`) | 3 | Classifier-free-guidance scale: 1 = none, 1.5 mild, 3 moderate, 5 strong. |
+| `--steps` | 20 | Euler sampling steps. |
+| `--plane` | `axial` | Slab orientation: `axial`, `sagittal`, `coronal`. |
+| `--iso MM` | off | Run at an `MM`-mm isotropic grid, resample the output back to the input grid. |
+| `--seed` | random | Noise seed; the seed used is printed, so a result can be reproduced. |
+| `--checkpoint PATH` | Hub download | Local weights (`.pt` or `.safetensors`); or set `MRIARTIFACTS_CHECKPOINT`. |
+| `--device` | `auto` | `auto`, `cuda`, `cuda:N`, `cpu`. |
+| `--fp32` | off | Disable bf16 autocast on CUDA. |
+
+The output keeps the input's grid, orientation, affine and intensity units. Different
+seeds give different artifact realisations of the same volume.
+
+
+## Citation
+
+Paper brewing......
+
+## Licence
+
+MIT. See `LICENSE`. Weights: see the model card on the Hub.
