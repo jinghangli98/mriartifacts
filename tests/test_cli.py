@@ -69,12 +69,19 @@ def test_cli_random_seed_is_printed_and_reproducible(tmp_path, tiny_ckpt, capsys
     assert np.array_equal(nib.load(a).get_fdata(), nib.load(b).get_fdata())
 
 
-def test_cli_rejects_grappa_and_cs(tmp_path, tiny_ckpt):
+def test_cli_rejects_cs(tmp_path, tiny_ckpt):
     inp = _write(tmp_path / "t1.nii.gz", shape=(16, 16, 8))
-    for fam in ("grappa", "cs"):
-        with pytest.raises(SystemExit) as e:
-            cli.main([inp, "--artifact", fam, "--checkpoint", tiny_ckpt])
-        assert e.value.code == 2
+    with pytest.raises(SystemExit) as e:
+        cli.main([inp, "--artifact", "cs", "--checkpoint", tiny_ckpt])
+    assert e.value.code == 2
+
+
+def test_cli_accepts_grappa(tmp_path, tiny_ckpt, capsys):
+    inp = _write(tmp_path / "t1.nii.gz", shape=(16, 16, 8))
+    code, out, err = _run(capsys, inp, "--artifact", "grappa", "--checkpoint", tiny_ckpt,
+                          "--steps", "1", "--device", "cpu", "--seed", "0")
+    assert code == 0, err
+    assert os.path.exists(str(tmp_path / "t1_grappa.nii.gz"))
 
 
 def test_cli_refuses_existing_output_without_overwrite(tmp_path, tiny_ckpt, capsys):
@@ -192,3 +199,26 @@ def test_compile_model_is_cuda_only():
     assert cli.compile_model(fm, torch.device("cpu"), True) is False
     assert fm.model is FM.model
     assert cli.compile_model(fm, torch.device("cuda"), False) is False
+
+
+def test_cli_input_output_flags(tmp_path, tiny_ckpt, capsys):
+    inp = _write(tmp_path / "t1.nii.gz", shape=(16, 16, 8))
+    assert cli.parse_args([inp, "--artifact", "motion"]).output is None
+    a = cli.parse_args(["-i", inp, "-o", "o.nii.gz", "--artifact", "motion"])
+    assert (a.input, a.output) == (inp, "o.nii.gz")
+    a = cli.parse_args(["--artifact", "motion", "-i", inp, "o.nii.gz"])
+    assert (a.input, a.output) == (inp, "o.nii.gz")
+    a = cli.parse_args([inp, "--output", "o.nii.gz", "--artifact", "motion"])
+    assert (a.input, a.output) == (inp, "o.nii.gz")
+    for argv in (["--artifact", "motion"],
+                 [inp, "-i", inp, "--artifact", "motion", "o.nii.gz"],
+                 [inp, "o.nii.gz", "-o", "p.nii.gz", "--artifact", "motion"],
+                 ["-i", inp, "-o", "o.nii.gz", "p.nii.gz", "--artifact", "motion"]):
+        with pytest.raises(SystemExit) as e:
+            cli.parse_args(argv)
+        assert e.value.code == 2
+    out_path = str(tmp_path / "o.nii.gz")
+    code, _, err = _run(capsys, "-i", inp, "-o", out_path, "--artifact", "spike", "--checkpoint", tiny_ckpt,
+                        "--steps", "1", "--device", "cpu", "--seed", "0")
+    assert code == 0, err
+    assert os.path.exists(out_path)

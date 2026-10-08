@@ -1,6 +1,7 @@
 """`artifact-gen`: clean brain-MRI NIfTI -> artifact-corrupted copy.
 
-    artifact-gen INPUT.nii.gz [OUTPUT.nii.gz] --artifact {motion,spike,lowres} [--strength 3]
+    artifact-gen INPUT.nii.gz [OUTPUT.nii.gz] --artifact {motion,spike,grappa,lowres} [--strength 3]
+    artifact-gen -i INPUT.nii.gz -o OUTPUT.nii.gz --artifact motion
 
 The output is always on the input's grid, orientation and intensity units,
 so the clean/corrupted pair is voxel-aligned for downstream training."""
@@ -40,11 +41,16 @@ def parse_args(argv=None):
         description="Generate a realistic MRI artifact on a clean brain volume with a "
                     "class-conditioned flow-matching model. The output keeps the input's grid, "
                     "orientation and intensity units.")
-    p.add_argument("input", help="clean 3D NIfTI (.nii or .nii.gz)")
+    p.add_argument("input", nargs="?", help="clean 3D NIfTI (.nii or .nii.gz)")
     p.add_argument("output", nargs="?", help="output NIfTI (default: <input stem>_<artifact>.nii.gz)")
+    p.add_argument("-i", "--input", dest="input_opt", metavar="INPUT",
+                   help="input NIfTI; same as the positional INPUT")
+    p.add_argument("-o", "--output", dest="output_opt", metavar="OUTPUT",
+                   help="output NIfTI; same as the positional OUTPUT")
     p.add_argument("--artifact", required=True, choices=PUBLIC_ARTIFACTS,
                    help="artifact to generate (motion = MR-ART-style head motion; spike = k-space "
-                        "spike; lowres = low-resolution blur)")
+                        "spike; grappa = parallel-imaging aliasing/noise amplification; lowres = "
+                        "low-resolution blur)")
     p.add_argument("--strength", "--guidance-scale", dest="strength", type=float, default=3.0,
                    help="classifier-free-guidance scale: 1 = no guidance, 1.5 mild, 3 moderate "
                         "(default), 5 strong")
@@ -69,7 +75,27 @@ def parse_args(argv=None):
                         "CUDA; the first slab batch pays a one-off compile cost)")
     p.add_argument("--overwrite", action="store_true", help="replace an existing output file")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    return resolve_paths(p, args)
+
+
+def resolve_paths(parser, args):
+    """Merge the positional INPUT/OUTPUT with -i/-o into `args.input` and
+    `args.output`. With -i, a single positional is taken as the output
+    (`artifact-gen -i in.nii out.nii`); giving the same path twice is an error."""
+    positional = [a for a in (args.input, args.output) if a is not None]
+    if args.input_opt is not None:
+        if len(positional) > 1 or (positional and args.output_opt is not None):
+            parser.error("input/output given both positionally and with -i/-o")
+        args.input = args.input_opt
+        args.output = args.output_opt if args.output_opt is not None else (positional[0] if positional else None)
+    elif args.output_opt is not None:
+        if args.output is not None:
+            parser.error("output given both positionally and with -o")
+        args.output = args.output_opt
+    if args.input is None:
+        parser.error("an input NIfTI is required (positional INPUT or -i/--input)")
+    return args
 
 
 def pick_device(name):

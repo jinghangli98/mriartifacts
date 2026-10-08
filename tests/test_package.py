@@ -11,7 +11,7 @@ def test_package_constants():
     assert mriartifacts.__version__ == "0.1.0"
     assert mriartifacts.FAMILIES == ("motion", "spike", "grappa", "lowres", "cs")
     assert mriartifacts.NULL_INDEX == 5 and mriartifacts.NUM_CLASSES == 6
-    assert mriartifacts.PUBLIC_ARTIFACTS == ("motion", "spike", "lowres")
+    assert mriartifacts.PUBLIC_ARTIFACTS == ("motion", "spike", "grappa", "lowres")
     assert set(mriartifacts.PUBLIC_ARTIFACTS) <= set(mriartifacts.FAMILIES)
 
 

@@ -26,12 +26,14 @@ Weights (660 MB) are downloaded from
 artifact-gen clean_T1w.nii.gz --artifact motion            # -> clean_T1w_motion.nii.gz
 artifact-gen in.nii.gz out.nii.gz --artifact spike --strength 5 --seed 42
 artifact-gen in.nii.gz --artifact lowres --iso 1
+artifact-gen -i in.nii.gz -o out.nii.gz --artifact grappa     # -i/-o instead of positionals
 ```
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `OUTPUT` | `<input stem>_<artifact>.nii.gz` | Output path; existing files need `--overwrite`. |
-| `--artifact` | required | `motion`, `spike` or `lowres`. |
+| `INPUT` / `-i` | required | Clean 3D NIfTI. |
+| `OUTPUT` / `-o` | `<input stem>_<artifact>.nii.gz` | Output path; existing files need `--overwrite`. |
+| `--artifact` | required | `motion`, `spike`, `grappa` or `lowres`. `grappa` was not validated in the paper. |
 | `--strength` (alias `--guidance-scale`) | 3 | Classifier-free-guidance scale: 1 = none, 1.5 mild, 3 moderate, 5 strong. |
 | `--steps` | 20 | Euler sampling steps. |
 | `--plane` | `axial` | Slab orientation: `axial`, `sagittal`, `coronal`. |
