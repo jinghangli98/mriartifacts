@@ -19,7 +19,7 @@ from .generate import PLANES, generate_volume
 from .model import load_for_inference
 from .slab import PATCH_Z, save_volume, to_ras
 from .volume import resample_iso, resample_like
-from .weights import WeightsError, resolve_checkpoint
+from .weights import DEFAULT_MODEL, MODELS, WeightsError, resolve_checkpoint
 
 
 class CliError(Exception):
@@ -65,9 +65,13 @@ def parse_args(argv=None):
                         "is resampled back to the input grid (default: native grid)")
     p.add_argument("--seed", type=int, default=None,
                    help="noise seed (default random; the seed used is printed)")
+    p.add_argument("--model", choices=tuple(MODELS), default=DEFAULT_MODEL,
+                   help="which Hub model to download: small = 64-192-320 channels, 68M params "
+                        "(default); large = 128-256-512 channels, 165M params, slower. Ignored with "
+                        "--checkpoint or $MRIARTIFACTS_CHECKPOINT")
     p.add_argument("--checkpoint", default=None,
-                   help="local weights (.pt or .safetensors); default: download from the Hub, "
-                        "or $MRIARTIFACTS_CHECKPOINT")
+                   help="local weights (.pt or .safetensors); default: download --model from the "
+                        "Hub, or $MRIARTIFACTS_CHECKPOINT")
     p.add_argument("--device", default="auto", help="auto (default), cuda, cuda:N or cpu")
     p.add_argument("--fp32", action="store_true", help="disable bf16 autocast on CUDA")
     p.add_argument("--no-compile", dest="compile", action="store_false",
@@ -158,7 +162,7 @@ def run(args):
     seed = args.seed if args.seed is not None else int.from_bytes(os.urandom(4), "little")
     print(f"seed: {seed}")
     try:
-        ckpt = resolve_checkpoint(args.checkpoint)
+        ckpt = resolve_checkpoint(args.checkpoint, model=args.model)
     except WeightsError as e:
         raise CliError(str(e))
     amp = use_amp(device, args.fp32)

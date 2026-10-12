@@ -65,4 +65,30 @@ def test_missing_config_is_not_fatal(tmp_path, monkeypatch):
 
 def test_default_repo_points_at_the_published_checkpoint():
     assert w.DEFAULT_REPO == "jil202/mriartifacts"
-    assert w.WEIGHTS_FILE == "motion_cfg_classemb128_100526_best.pt"
+    assert w.WEIGHTS_FILE == "motion_cfg_classemb64w_100826_best.pt"
+    assert w.MODELS == {"large": "motion_cfg_classemb128_100526_best.pt",
+                        "small": "motion_cfg_classemb64w_100826_best.pt"}
+    assert w.DEFAULT_MODEL == "small"
+
+
+def test_model_selects_hub_file(tmp_path, monkeypatch):
+    monkeypatch.delenv(w.ENV_VAR, raising=False)
+    calls = []
+
+    def fake(repo, filename):
+        calls.append(filename)
+        f = tmp_path / filename
+        f.write_bytes(b"x")
+        return str(f)
+    monkeypatch.setattr(w, "_hub_download", fake)
+    assert w.resolve_checkpoint(None, repo="r/r", model="small") == str(tmp_path / w.MODELS["small"])
+    assert calls[0] == w.MODELS["small"]
+    with pytest.raises(w.WeightsError, match="unknown model"):
+        w.resolve_checkpoint(None, repo="r/r", model="huge")
+
+
+def test_explicit_path_ignores_model(tmp_path, monkeypatch):
+    p = tmp_path / "a.pt"
+    p.write_bytes(b"x")
+    monkeypatch.setattr(w, "_hub_download", lambda repo, filename: pytest.fail("hub must not be called"))
+    assert w.resolve_checkpoint(str(p), model="small") == str(p)

@@ -222,3 +222,18 @@ def test_cli_input_output_flags(tmp_path, tiny_ckpt, capsys):
                         "--steps", "1", "--device", "cpu", "--seed", "0")
     assert code == 0, err
     assert os.path.exists(out_path)
+
+
+def test_cli_model_flag(tmp_path, tiny_ckpt, monkeypatch):
+    from mriartifacts import weights as w
+    inp = _write(tmp_path / "t1.nii.gz", shape=(16, 16, 8))
+    assert cli.parse_args([inp, "--artifact", "motion"]).model == "small"
+    assert cli.parse_args([inp, "--artifact", "motion", "--model", "large"]).model == "large"
+    with pytest.raises(SystemExit):
+        cli.parse_args([inp, "--artifact", "motion", "--model", "huge"])
+    seen = []
+    monkeypatch.delenv(w.ENV_VAR, raising=False)
+    monkeypatch.setattr(w, "_hub_download", lambda repo, filename: seen.append(filename) or tiny_ckpt)
+    cli.run(cli.parse_args([inp, "--artifact", "motion", "--model", "small", "--steps", "1",
+                            "--device", "cpu", "--seed", "0"]))
+    assert seen[0] == w.MODELS["small"]

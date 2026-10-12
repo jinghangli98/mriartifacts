@@ -14,7 +14,9 @@ cd mriartifacts
 pip install -e .
 ```
 
-The model has 165 M parameters and a 1 mm whole-brain volume takes about 2.5 minutes on an A100.
+Two models are available with `--model`: `small` (default, 64-192-320 channels, 68 M
+parameters) and `large` (128-256-512 channels, 165 M parameters; a 1 mm whole-brain volume
+takes about 2.5 minutes on an A100).
 
 
 Weights (660 MB) are downloaded from
@@ -40,6 +42,7 @@ artifact-gen -i in.nii.gz -o out.nii.gz --artifact grappa     # -i/-o instead of
 | `--overlap N` | 1 | Slices shared by neighbouring 7-slice slabs and linearly blended (0 = none, up to 6). |
 | `--iso MM` | off | Run at an `MM`-mm isotropic grid, resample the output back to the input grid. |
 | `--seed` | random | Noise seed; the seed used is printed, so a result can be reproduced. |
+| `--model` | `small` | Hub model to use: `small` (68 M params) or `large` (165 M params, slower). Ignored with `--checkpoint`. |
 | `--checkpoint PATH` | Hub download | Local weights (`.pt` or `.safetensors`); or set `MRIARTIFACTS_CHECKPOINT`. |
 | `--device` | `auto` | `auto`, `cuda`, `cuda:N`, `cpu`. |
 | `--fp32` | off | Disable bf16 autocast on CUDA. |
